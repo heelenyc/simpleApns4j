@@ -21,24 +21,23 @@ import com.heelenyc.simpleapns.model.Feedback;
 import com.heelenyc.simpleapns.model.Payload;
 import com.heelenyc.simpleapns.model.PushNotification;
 
+/**
+ * @author yicheng
+ * @since 2015年3月6日
+ *
+ */
 public interface IApnsService {
 	/**
-	 * @param token  deviceToken
+	 * @param token  
 	 * @param payload
 	 */
 	public void sendNotification(String token, Payload payload);
 	/**
-	 * If you want to specify the ID of a notification, use this method
 	 * @param notification
 	 */
 	public void sendNotification(PushNotification notification);
 	
 	public void shutdown();
-	
-	/**
-	 * EN: You should call this interface once an hour, once a day or other time as you wish
-	 * CN: 返回用户在设备上卸载了APP的device token。这个接口最好定期调用，比如一天一次，或者一小时一次等等
-	 * @return the device tokens which belong to the app that doesn't exist on the device.
-	 */
+
 	public List<Feedback> getFeedbacks();
 }

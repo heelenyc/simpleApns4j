@@ -32,11 +32,6 @@ import org.apache.commons.logging.LogFactory;
 import com.heelenyc.simpleapns.api.IApnsConnection;
 import com.heelenyc.simpleapns.model.ApnsConfig;
 
-/**
- * 
- * @author RamosLi
- * 
- */
 public class ApnsConnectionPool implements Closeable {
     private Log logger = LogFactory.getLog(ApnsConnectionPool.class);
 
