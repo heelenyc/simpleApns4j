@@ -9,10 +9,6 @@ import com.heelenyc.simpleapns.model.ApnsConfig;
 import com.heelenyc.simpleapns.model.Feedback;
 import com.heelenyc.simpleapns.model.Payload;
 
-/**
- * @author RamosLi
- * 
- */
 public class Apns4jDemo {
     private static IApnsService apnsService;
 

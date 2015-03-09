@@ -26,7 +26,6 @@ import com.heelenyc.simpleapns.model.PushNotification;
 /**
  * EN: resend the notifications which sent after an error one using same connection
  * CN: 重发，没啥好说的
- * @author RamosLi
  *
  */
 public class ApnsResender {

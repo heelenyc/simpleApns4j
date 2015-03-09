@@ -16,9 +16,8 @@
 package com.heelenyc.simpleapns.model;
 
 /**
- * @author RamosLi
- * For more details:
- *   https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html
+ *  For more details:
+ *  https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html
  */
 public class FrameItem {
 	/* 

@@ -18,34 +18,39 @@ package com.heelenyc.simpleapns.model;
 import java.util.Date;
 
 /**
- * https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html
- * @author RamosLi
- *
+ * https://developer.apple.com/library/ios/documentation/NetworkingInternet/
+ * Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html
+ * 
  */
 public class Feedback {
-	/**
-	 * A timestamp indicating when APNs determined that the application no longer exists on the device.
-	 * This value represents the seconds since 12:00 midnight on January 1, 1970 UTC.
-	 */
-	private long time;
-	/**
-	 * The device token
-	 */
-	private String token;
-	
-	public long getTime() {
-		return time;
-	}
-	public void setTime(long time) {
-		this.time = time;
-	}
-	public String getToken() {
-		return token;
-	}
-	public void setToken(String token) {
-		this.token = token;
-	}
-	public Date getDate() {
-		return new Date(getTime() * 1000);
-	}
+    /**
+     * A timestamp indicating when APNs determined that the application no
+     * longer exists on the device. This value represents the seconds since
+     * 12:00 midnight on January 1, 1970 UTC.
+     */
+    private long time;
+    /**
+     * The device token
+     */
+    private String token;
+
+    public long getTime() {
+        return time;
+    }
+
+    public void setTime(long time) {
+        this.time = time;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
+
+    public Date getDate() {
+        return new Date(getTime() * 1000);
+    }
 }

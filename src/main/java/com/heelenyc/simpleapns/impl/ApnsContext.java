@@ -35,10 +35,12 @@ public class ApnsContext {
     
     private static AtomicLong sendCountMonitorAtomicLong = new AtomicLong();
     
+    private IApnsService apnsService;
+    
     // 统计该是
 
-    public static void createApnsContext(ApnsConfig config) {
-        instance = new ApnsContext(config);
+    public static void createApnsContext(ApnsConfig config, IApnsService apnsService) {
+        instance = new ApnsContext(config,apnsService);
     }
 
     public static ApnsContext getInstance() {
@@ -49,10 +51,12 @@ public class ApnsContext {
     }
 
     /**
+     * @param apnsService 
      * 
      */
-    public ApnsContext(final ApnsConfig config) {
+    public ApnsContext(final ApnsConfig config, IApnsService apnsService) {
         this.config = config;
+        this.apnsService = apnsService;
         if (config.isCacheErrorToken()) {
              errorTokenCache = new LRUMapCache<String,Boolean>(config.getCacheErrotTokenExpires());
         }
@@ -124,5 +128,9 @@ public class ApnsContext {
 
     public ApnsConfig getConfig() {
         return config;
+    }
+
+    public IApnsService getApnsService() {
+        return apnsService;
     }
 }

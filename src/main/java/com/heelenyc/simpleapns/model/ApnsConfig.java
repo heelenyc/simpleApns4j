@@ -50,7 +50,7 @@ public class ApnsConfig {
     private boolean isCacheErrorToken = false;
 
     /**
-     * 默认缓存半个小时以内的errortoken  毫秒单位
+     * 默认缓存半个小时以内的errortoken 毫秒单位
      */
     private int cacheErrorTokenExpires = 30 * 60 * 1000;
 

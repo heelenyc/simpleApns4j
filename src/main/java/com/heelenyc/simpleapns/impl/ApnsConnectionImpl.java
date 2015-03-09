@@ -46,10 +46,6 @@ import com.heelenyc.simpleapns.model.Payload;
 import com.heelenyc.simpleapns.model.PushNotification;
 import com.heelenyc.simpleapns.utils.ApnsTools;
 
-/**
- * @author RamosLi
- * 
- */
 public class ApnsConnectionImpl implements IApnsConnection {
 
     private static AtomicInteger IDENTIFIER = new AtomicInteger(100);

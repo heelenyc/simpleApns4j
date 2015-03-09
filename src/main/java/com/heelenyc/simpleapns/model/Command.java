@@ -15,10 +15,6 @@
  */
 package com.heelenyc.simpleapns.model;
 
-/**
- * @author RamosLi
- * 
- */
 public class Command {
 	
 	public static final int SEND = 1;

@@ -40,4 +40,6 @@ public interface IApnsService {
 	public void shutdown();
 
 	public List<Feedback> getFeedbacks();
+	
+	public void stat();
 }
