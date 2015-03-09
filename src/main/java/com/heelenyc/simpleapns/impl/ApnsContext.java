@@ -83,6 +83,7 @@ public class ApnsContext {
             public void run() {
                 logger.info(sendCountMonitorAtomicLong + " sends in last period (ApnsContext) !");
                 sendCountMonitorAtomicLong = new AtomicLong(0);
+                getApnsService().stat();
             }
         }, 1, 1, TimeUnit.MINUTES);
     }
