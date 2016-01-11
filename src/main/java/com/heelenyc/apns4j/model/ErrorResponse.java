@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heelenyc.simpleapns.model;
+package com.heelenyc.apns4j.model;
 
 public class ErrorResponse {
 	public static final int ERROR_CODE_NO_ERRORS = 0;

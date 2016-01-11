@@ -1,4 +1,4 @@
-package com.heelenyc.simpleapns.utils;
+package com.heelenyc.apns4j.tools;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +23,10 @@ public class LRUMapCache<K,V> {
      */
     public LRUMapCache(int expires) {
         this.expires = expires;
+    }
+    
+    public int getMapSize() {
+        return cache.size();
     }
 
     /**

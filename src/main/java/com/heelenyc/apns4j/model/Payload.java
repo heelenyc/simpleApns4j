@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heelenyc.simpleapns.model;
+package com.heelenyc.apns4j.model;
 
 import java.nio.charset.Charset;
 import java.util.HashMap;
@@ -24,8 +24,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- *  For more details, view the following site:
- *  https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html
+ * For more details, view the following site:
+ *   https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html
  */
 public class Payload {
 	private static final String APS = "aps";

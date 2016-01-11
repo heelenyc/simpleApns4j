@@ -13,32 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heelenyc.simpleapns.api;
+package com.heelenyc.apns4j;
 
-import java.io.Closeable;
+import java.io.IOException;
 
-import com.heelenyc.simpleapns.model.Payload;
-import com.heelenyc.simpleapns.model.PushNotification;
+import com.heelenyc.apns4j.model.Payload;
+import com.heelenyc.apns4j.model.PushNotification;
 
-
-public interface IApnsConnection extends Closeable {
+public interface IApnsConnection  {
 	
-	/**
-	 * 发送notice
-	 * @param token
-	 * @param payload
-	 */
 	public void sendNotification(String token, Payload payload);
 
-	/**
-	 * 发送notice
-	 * @param notification
-	 */
 	public void sendNotification(PushNotification notification);
 	
-	/**
-	 * 此连接是否可用
-	 * @return
-	 */
 	public boolean isAvailable();
+	
+	public boolean setUnavailable();
+	
+	public boolean isDeprecated();
+	
+	public void setDeprecated(boolean deprecated);
+	
+	public void close() throws IOException;
+	
+    public void closeSocket();
+    
+    public void handleSendError();
 }

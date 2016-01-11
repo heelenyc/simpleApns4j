@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heelenyc.simpleapns.model;
+package com.heelenyc.apns4j.model;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import com.heelenyc.simpleapns.utils.ApnsTools;
-
+import com.heelenyc.apns4j.tools.ApnsTools;
 
 public class PushNotification {
 	/*
@@ -41,6 +40,8 @@ public class PushNotification {
 	private String token;
 	private Payload payload;
 	private int priority = PRIORITY_SENT_IMMEDIATELY;
+	
+	private long bornTimestamp = System.currentTimeMillis();
 	
 	public int getId() {
 		return id;
@@ -97,4 +98,21 @@ public class PushNotification {
 	public void setPriority(int priority) {
 		this.priority = priority;
 	}
+    
+	public long getBornTimestamp() {
+        return bornTimestamp;
+    }
+    public void setBornTimestamp(long bornTimestamp) {
+        this.bornTimestamp = bornTimestamp;
+    }
+    
+    public boolean isDeprecated(){
+        return System.currentTimeMillis() - getBornTimestamp() > ApnsConstants.APNS_NOTIFICATION_LIFE_TIMESPAN;
+    }
+    /**
+     * @return
+     */
+    public long getLifeTime() {
+        return System.currentTimeMillis() - getBornTimestamp();
+    }
 }

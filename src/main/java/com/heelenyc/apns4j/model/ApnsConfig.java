@@ -1,4 +1,19 @@
-package com.heelenyc.simpleapns.model;
+/*
+ * Copyright 2013 DiscoveryBay Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.heelenyc.apns4j.model;
 
 import java.io.InputStream;
 
@@ -27,7 +42,7 @@ public class ApnsConfig {
     /**
      * max retry times when sending a notification
      */
-    private int retries = 3;
+    private int retries = 1;
 
     /**
      * EN: The APNS gateway has a CONNECTION_IDLE_TIME, with my experience, it's
@@ -50,7 +65,7 @@ public class ApnsConfig {
     private boolean isCacheErrorToken = false;
 
     /**
-     * 默认缓存半个小时以内的errortoken 毫秒单位
+     * 默认缓存半个小时以内的errortoken  毫秒单位
      */
     private int cacheErrorTokenExpires = 30 * 60 * 1000;
 
@@ -149,7 +164,7 @@ public class ApnsConfig {
         this.isCacheErrorToken = isCacheErrorToken;
     }
 
-    public int getCacheErrotTokenExpires() {
+    public int getCacheErrorTokenExpires() {
         return cacheErrorTokenExpires;
     }
 

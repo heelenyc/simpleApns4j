@@ -13,11 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heelenyc.simpleapns.impl;
-
-import static com.dbay.apns4j.model.ApnsConstants.CHARSET_ENCODING;
-import static com.dbay.apns4j.model.ApnsConstants.ERROR_RESPONSE_BYTES_LENGTH;
-import static com.dbay.apns4j.model.ApnsConstants.PAY_LOAD_MAX_LENGTH;
+package com.heelenyc.apns4j.impl;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +22,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -39,17 +36,15 @@ import javax.net.SocketFactory;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.dbay.apns4j.IApnsConnection;
-import com.dbay.apns4j.model.Command;
-import com.dbay.apns4j.model.ErrorResponse;
-import com.dbay.apns4j.model.Payload;
-import com.dbay.apns4j.model.PushNotification;
-import com.dbay.apns4j.tools.ApnsTools;
+import com.heelenyc.apns4j.IApnsConnection;
+import com.heelenyc.apns4j.model.Command;
+import com.heelenyc.apns4j.model.ErrorResponse;
+import com.heelenyc.apns4j.model.Payload;
+import com.heelenyc.apns4j.model.PushNotification;
+import com.heelenyc.apns4j.tools.ApnsTools;
 
-/**
- * @author RamosLi
- * 
- */
+import com.heelenyc.apns4j.model.ApnsConstants;
+
 public class ApnsConnectionImpl implements IApnsConnection {
 
     private static AtomicInteger IDENTIFIER = new AtomicInteger(100);
@@ -65,6 +60,7 @@ public class ApnsConnectionImpl implements IApnsConnection {
      * reading. CN: 一个socket，最多有两个线程在使用它，一个读一个写。
      */
     private volatile Socket socket;
+    private Object socketLock = new Object();
     /**
      * When a notification is sent, cache it into this queue. It may be resent.
      */
@@ -80,6 +76,9 @@ public class ApnsConnectionImpl implements IApnsConnection {
      */
     private volatile boolean isFirstWrite = false;
 
+    // conn 是否弃用
+    private volatile boolean deprecated = false;
+
     private int maxRetries;
     private int maxCacheLength;
 
@@ -92,7 +91,7 @@ public class ApnsConnectionImpl implements IApnsConnection {
      * You can find the properly ApnsService to resend notifications by this
      * name
      */
-    private String name;
+    private String serviceName;
 
     /**
      * connection name
@@ -103,34 +102,36 @@ public class ApnsConnectionImpl implements IApnsConnection {
 
     private AtomicInteger notificaionSentCount = new AtomicInteger(0);
     private Object lock = new Object();
-    private ScheduledExecutorService es = Executors.newScheduledThreadPool(1);
+    private ScheduledExecutorService es = Executors.newScheduledThreadPool(2);
 
-    private long slowsendthreshold = 100;
+    private int slowSendTimes = 0;
+    private long lastSlowSendTimestamp = 0;
 
-    public ApnsConnectionImpl(SocketFactory factory, String host, int port, int maxRetries, int maxCacheLength, String name, String connName, int intervalTime, int timeout) {
+    private ApnsContext apnsContext;
+
+    public ApnsConnectionImpl(SocketFactory factory, String host, int port, int maxRetries, int maxCacheLength, String name, String connName, int intervalTime, int timeout, ApnsContext apnsContext) {
         this.factory = factory;
         this.host = host;
         this.port = port;
         this.maxRetries = maxRetries;
         this.maxCacheLength = maxCacheLength;
-        this.name = name;
+        this.serviceName = name;
         this.connName = connName;
         this.intervalTime = intervalTime;
         this.readTimeOut = timeout;
+        this.apnsContext = apnsContext;
 
         // 循环 检测socket是否可用
         es.scheduleWithFixedDelay(new Runnable() {
 
             @Override
             public void run() {
-                if (socket == null || socket.isClosed()) {
+                if (socket == null || errorHappended ) { //|| socket.isClosed()
                     try {
                         createNewSocket();
                         // test nofication
                         // testHeartBeat();
-                    } catch (UnknownHostException e) {
-                        logger.error(e.getMessage(), e);
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         logger.error(e.getMessage(), e);
                     }
                 }
@@ -155,31 +156,34 @@ public class ApnsConnectionImpl implements IApnsConnection {
     @Override
     public void sendNotification(String token, Payload payload) {
         PushNotification notification = new PushNotification();
-        notification.setId(IDENTIFIER.incrementAndGet());
         notification.setExpire(EXPIRE);
         notification.setToken(token);
         notification.setPayload(payload);
-        long startTimestamp = System.currentTimeMillis();
         sendNotification(notification);
-        long end = System.currentTimeMillis();
-        if (end - startTimestamp > slowsendthreshold ) {
-            logger.info(String.format("slow send in %s ! span %d ms for token : %s payload : %s" ,getConnName(),end - startTimestamp,token,payload));
-        }
     }
 
     @Override
     public void sendNotification(PushNotification notification) {
 
-        if (notification != null && ApnsContext.isErrorToken(notification.getToken())) {
+        if (notification != null && getApnsContext().isErrorToken(notification.getToken())) {
             logger.info("error token : " + notification.getToken() + " in sendNotification, ignore : " + notification.getPayload().getAlertBody());
+            this.getApnsContext().addIgnore4etMonitorAtomicLong();
             return;
         }
+        if (notification.isDeprecated()) {
+            logger.info("expired notification , lifetime: " + notification.getLifeTime() + " ms , ignore :" + notification.getPayload().getAlertBody());
+            apnsContext.addDeprecateCounts();
+            return;
+        }
+        long startTimestamp = System.currentTimeMillis();
 
+        // 可能是重传的进来了，所以只能在这个地方设置id，因为上个id可能不是这个连接设置的
+        notification.setId(IDENTIFIER.incrementAndGet());
         byte[] plBytes = null;
         String payload = notification.getPayload().toString();
         try {
-            plBytes = payload.getBytes(CHARSET_ENCODING);
-            if (plBytes.length > PAY_LOAD_MAX_LENGTH) {
+            plBytes = payload.getBytes(ApnsConstants.CHARSET_ENCODING);
+            if (plBytes.length > ApnsConstants.PAY_LOAD_MAX_LENGTH) {
                 logger.error("Payload execeed limit, the maximum size allowed is 256 bytes. " + payload);
                 return;
             }
@@ -200,21 +204,28 @@ public class ApnsConnectionImpl implements IApnsConnection {
             byte[] data = notification.generateData(plBytes);
             boolean isSuccessful = false;
             int retries = 0;
-            while (retries < maxRetries) {
+            try {
+                if (this.getApnsContext().getConfig().isDevEnv()) {
+                    retries = -2; // 如果是开发版本，多重试两次。
+                }
+            } catch (Exception e) {
+                logger.error(e.getMessage(), e);
+            }
+            
+            while (retries <= maxRetries) {
                 try {
                     // 考虑超过idle期限，苹果会单方面关闭连接
                     boolean exceedIntervalTime = lastSuccessfulTime > 0 && (System.currentTimeMillis() - lastSuccessfulTime) > intervalTime;
                     if (exceedIntervalTime) {
-                        closeSocket();
-                        socket = null;
+                        throw new Exception("socket expired cause by idle;  last lastSuccessfulTime : " + new Date(lastSuccessfulTime));
                     }
-                    /*
-                     * if (socket == null || socket.isClosed()) { socket =
-                     * createNewSocket(); }
-                     */
-                    // 等待socket不为空
+                    // 检查连接质量
+                    checkConn();
+                    // socket不可用，直接出去，等重发,
+                    // 不行！，当请求量相对连接数少一个数量级的时候，有问题，一开始handshake异常，然后重试次数用完了，socket都没建好，然后转到其他的连接重发也是如此
+                    // 还是得循环
                     while (!this.isAvailable()) {
-                        Thread.sleep(100);
+                        Thread.sleep(200);
                     }
 
                     OutputStream socketOs = socket.getOutputStream();
@@ -233,11 +244,18 @@ public class ApnsConnectionImpl implements IApnsConnection {
             }
             if (!isSuccessful) {
                 logger.error(String.format("%s Notification send failed. %s", connName, notification));
-                ApnsContext.addForResend(notification);
+                getApnsContext().addForResend(notification);
                 return;
             } else {
+                // 慢日志
+                long end = System.currentTimeMillis();
+                getApnsContext().globalSlowInfo(end - startTimestamp,socket.getInetAddress().getHostAddress());
+                if (getApnsContext().addSlowSendCounts(end - notification.getBornTimestamp())) {
+                    logger.info(String.format("%d ms ! slow send in %s retry : %d , sendcost %s ms", end - notification.getBornTimestamp(), getConnName(), retries, end - startTimestamp));
+                    recordSlowInfo(end);
+                }
                 notificaionSentCount.incrementAndGet();
-                ApnsContext.addSendCounts();
+                getApnsContext().addSendCounts();
                 // logger.info(String.format("%s Send success. count: %s, notificaion: %s",
                 // connName, notificaionSentCount.incrementAndGet(),
                 // notification));
@@ -259,39 +277,58 @@ public class ApnsConnectionImpl implements IApnsConnection {
 
         if (isFirstWrite) {
             isFirstWrite = false;
-            /**
-             * EN: When we create a socket, just a TCP/IP connection created.
-             * After we wrote data to the stream, the SSL connection had been
-             * created. Now, it's time to read data from InputStream CN:
-             * createSocket时只建立了TCP连接，还没有进行SSL认证，第一次写完数据后才真正完成认证。所以此时才开始
-             * 监听InputStream
-             */
             startErrorWorker();
         }
     }
 
-    private synchronized void createNewSocket() throws IOException, UnknownHostException {
-        isFirstWrite = true;
-        errorHappended = false;
+    private void createNewSocket() throws IOException, UnknownHostException {
+
         Socket socket_new = factory.createSocket(host, port);
         socket_new.setSoTimeout(readTimeOut);
         socket_new.setTcpNoDelay(true);
+        // 这个设置很重要，不然很多情况下会卡线程，主要close的行为
+        socket_new.setSoLinger(true, 0);
 
-        if (logger.isInfoEnabled()) {
+        if (socket_new.isConnected()) {
+            synchronized (socketLock) {
+                isFirstWrite = true;
+                errorHappended = false;
+                slowSendTimes = 0;
+                lastSlowSendTimestamp = 0;
+                lastSuccessfulTime = 0;
+                socket = socket_new;
+            }
             logger.info(connName + " finish create a new socket.");
+        } else {
+            logger.info(connName + " finish create a new socket.bu is not connected");
         }
-        socket = socket_new;
+//        try {
+//            this.getApnsContext().registTotalIps(socket.getInetAddress().getHostAddress());
+//        } catch (Exception e) {
+//            logger.error("regisTotalIps error ", e);
+//        }
+        
     }
 
-    private synchronized void closeSocket() {
-        try {
-            if (socket != null) {
-                socket.close();
+    public void closeSocket() {
+        if (socket != null) {
+//            try {
+//                this.getApnsContext().unRegistTotalIps(socket.getInetAddress().getHostAddress());
+//            } catch (Exception e) {
+//                logger.error("unregisTotalIps error ", e);
+//            }
+            
+            synchronized (socketLock) {
+                try {
+                    if (socket != null) {
+                        socket.close();
+                    }
+                } catch (Exception e) {
+                    logger.error(e.getMessage(), e);
+                } finally {
+                    socket = null;
+                }
             }
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-        } finally {
-            socket = null;
         }
     }
 
@@ -304,7 +341,9 @@ public class ApnsConnectionImpl implements IApnsConnection {
 
     @Override
     public void close() throws IOException {
+        es.shutdown();
         closeSocket();
+        setDeprecated(true);
     }
 
     private void startErrorWorker() {
@@ -317,7 +356,7 @@ public class ApnsConnectionImpl implements IApnsConnection {
                         return;
                     }
                     InputStream socketIs = socket.getInputStream();
-                    byte[] res = new byte[ERROR_RESPONSE_BYTES_LENGTH];
+                    byte[] res = new byte[ApnsConstants.ERROR_RESPONSE_BYTES_LENGTH];
                     int size = 0;
 
                     while (true) {
@@ -357,7 +396,7 @@ public class ApnsConnectionImpl implements IApnsConnection {
                                 if (pn.getId() == errorId) {
                                     found = true;
                                     foundedPn = pn;
-                                    ApnsContext.cacheErrorToken(foundedPn.getToken());
+                                    getApnsContext().cacheErrorToken(foundedPn.getToken());
                                     logger.info(String.format("cache error token : %s", pn.getToken()));
                                 } else {
                                     /**
@@ -390,7 +429,8 @@ public class ApnsConnectionImpl implements IApnsConnection {
                         }
                         // resend notifications
                         if (!resentQueue.isEmpty()) {
-                            ApnsResender.getInstance().resend(name, resentQueue);
+                            // 一般至少延后1分钟了，没有必要重发了
+                            // getApnsContext().addForResend(resentQueue);
                         }
                     } else {
                         // ignore and continue reading
@@ -408,7 +448,7 @@ public class ApnsConnectionImpl implements IApnsConnection {
                 }
             }
         });
-
+        thread.setName("errorcheck-" + getConnName());
         thread.start();
     }
 
@@ -426,7 +466,7 @@ public class ApnsConnectionImpl implements IApnsConnection {
             // " has error happend ! return false in isAvailable");
             return false;
         }
-        if (socket == null || socket.isClosed()) {
+        if (socket == null) {
             // logger.error(connName +
             // "'s socket is not ready! return false in isAvailable");
             return false;
@@ -437,5 +477,91 @@ public class ApnsConnectionImpl implements IApnsConnection {
 
     public String getConnName() {
         return connName;
+    }
+
+    public int getSlowSendTimes() {
+        return slowSendTimes;
+    }
+
+    public void setSlowSendTimes(int slowSendTimes) {
+        this.slowSendTimes = slowSendTimes;
+    }
+
+    public long getLastSlowSendTimestamp() {
+        return lastSlowSendTimestamp;
+    }
+
+    public void setLastSlowSendTimestamp(long lastSlowSendTimestamp) {
+        this.lastSlowSendTimestamp = lastSlowSendTimestamp;
+    }
+
+    /**
+     * 检查连接质量
+     */
+    private void checkConn() {
+        if (lastSlowSendTimestamp < System.currentTimeMillis() - 60 * 1000) {
+            slowSendTimes = 0;
+            lastSlowSendTimestamp = 0;
+        }
+        if (slowSendTimes > 5) {
+            // closeSocket();
+            logger.warn(getConnName() + " slowSendTimes(per minute) : " + slowSendTimes);
+        }
+    }
+
+    /**
+     * 如果慢查询发生再1分钟之内，进行记录，用于判断连接质量
+     * 
+     * @param end
+     */
+    private void recordSlowInfo(long end) {
+        // 第一次慢发送 直接记录
+        if (lastSlowSendTimestamp == 0) {
+            slowSendTimes++;
+            lastSlowSendTimestamp = end;
+            return;
+        }
+        // 非第一次，并且在一分钟之内，记录，否则清零
+        if (lastSlowSendTimestamp > System.currentTimeMillis() - 60 * 1000) {
+            slowSendTimes++;
+            lastSlowSendTimestamp = end;
+            return;
+        } else {
+            slowSendTimes = 0;
+            lastSlowSendTimestamp = 0;
+        }
+    }
+
+    @Override
+    public boolean setUnavailable() {
+        errorHappended = true;
+        return true;
+    }
+
+    @Override
+    public boolean isDeprecated() {
+        return deprecated;
+    }
+
+    @Override
+    public void setDeprecated(boolean deprecated) {
+        this.deprecated = deprecated;
+    }
+
+    public String getServiceName() {
+        return serviceName;
+    }
+
+    public ApnsContext getApnsContext() {
+        return apnsContext;
+    }
+
+    @Override
+    public void handleSendError() {
+        try {
+            // this.getApnsContext().registErrorIps(socket.getInetAddress().getHostAddress());
+        } catch (Exception e) {
+            logger.error("registErrorIps error ", e);
+        }
     }
 }

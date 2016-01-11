@@ -13,17 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heelenyc.simpleapns.api;
+package com.heelenyc.apns4j;
 
 import java.util.List;
 
-import com.heelenyc.simpleapns.model.Feedback;
+import com.heelenyc.apns4j.model.Feedback;
 
-/**
- * @author yicheng
- * @since 2015年3月6日
- *
- */
 public interface IApnsFeedbackConnection {
 	
 	public List<Feedback> getFeedbacks();
