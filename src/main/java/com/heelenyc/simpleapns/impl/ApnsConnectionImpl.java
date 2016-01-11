@@ -15,9 +15,9 @@
  */
 package com.heelenyc.simpleapns.impl;
 
-import static com.heelenyc.simpleapns.model.ApnsConstants.CHARSET_ENCODING;
-import static com.heelenyc.simpleapns.model.ApnsConstants.ERROR_RESPONSE_BYTES_LENGTH;
-import static com.heelenyc.simpleapns.model.ApnsConstants.PAY_LOAD_MAX_LENGTH;
+import static com.dbay.apns4j.model.ApnsConstants.CHARSET_ENCODING;
+import static com.dbay.apns4j.model.ApnsConstants.ERROR_RESPONSE_BYTES_LENGTH;
+import static com.dbay.apns4j.model.ApnsConstants.PAY_LOAD_MAX_LENGTH;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,13 +39,17 @@ import javax.net.SocketFactory;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.heelenyc.simpleapns.api.IApnsConnection;
-import com.heelenyc.simpleapns.model.Command;
-import com.heelenyc.simpleapns.model.ErrorResponse;
-import com.heelenyc.simpleapns.model.Payload;
-import com.heelenyc.simpleapns.model.PushNotification;
-import com.heelenyc.simpleapns.utils.ApnsTools;
+import com.dbay.apns4j.IApnsConnection;
+import com.dbay.apns4j.model.Command;
+import com.dbay.apns4j.model.ErrorResponse;
+import com.dbay.apns4j.model.Payload;
+import com.dbay.apns4j.model.PushNotification;
+import com.dbay.apns4j.tools.ApnsTools;
 
+/**
+ * @author RamosLi
+ * 
+ */
 public class ApnsConnectionImpl implements IApnsConnection {
 
     private static AtomicInteger IDENTIFIER = new AtomicInteger(100);
@@ -101,6 +105,8 @@ public class ApnsConnectionImpl implements IApnsConnection {
     private Object lock = new Object();
     private ScheduledExecutorService es = Executors.newScheduledThreadPool(1);
 
+    private long slowsendthreshold = 100;
+
     public ApnsConnectionImpl(SocketFactory factory, String host, int port, int maxRetries, int maxCacheLength, String name, String connName, int intervalTime, int timeout) {
         this.factory = factory;
         this.host = host;
@@ -153,7 +159,12 @@ public class ApnsConnectionImpl implements IApnsConnection {
         notification.setExpire(EXPIRE);
         notification.setToken(token);
         notification.setPayload(payload);
+        long startTimestamp = System.currentTimeMillis();
         sendNotification(notification);
+        long end = System.currentTimeMillis();
+        if (end - startTimestamp > slowsendthreshold ) {
+            logger.info(String.format("slow send in %s ! span %d ms for token : %s payload : %s" ,getConnName(),end - startTimestamp,token,payload));
+        }
     }
 
     @Override

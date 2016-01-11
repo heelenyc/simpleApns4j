@@ -15,10 +15,10 @@
  */
 package com.heelenyc.simpleapns.impl;
 
-import static com.heelenyc.simpleapns.model.ApnsConstants.HOST_DEVELOPMENT_ENV;
-import static com.heelenyc.simpleapns.model.ApnsConstants.HOST_PRODUCTION_ENV;
-import static com.heelenyc.simpleapns.model.ApnsConstants.PORT_DEVELOPMENT_ENV;
-import static com.heelenyc.simpleapns.model.ApnsConstants.PORT_PRODUCTION_ENV;
+import static com.dbay.apns4j.model.ApnsConstants.HOST_DEVELOPMENT_ENV;
+import static com.dbay.apns4j.model.ApnsConstants.HOST_PRODUCTION_ENV;
+import static com.dbay.apns4j.model.ApnsConstants.PORT_DEVELOPMENT_ENV;
+import static com.dbay.apns4j.model.ApnsConstants.PORT_PRODUCTION_ENV;
 
 import java.io.Closeable;
 import java.util.concurrent.BlockingQueue;
@@ -29,9 +29,14 @@ import javax.net.SocketFactory;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.heelenyc.simpleapns.api.IApnsConnection;
-import com.heelenyc.simpleapns.model.ApnsConfig;
+import com.dbay.apns4j.IApnsConnection;
+import com.dbay.apns4j.model.ApnsConfig;
 
+/**
+ * 
+ * @author RamosLi
+ * 
+ */
 public class ApnsConnectionPool implements Closeable {
     private Log logger = LogFactory.getLog(ApnsConnectionPool.class);
 
@@ -52,18 +57,22 @@ public class ApnsConnectionPool implements Closeable {
 
         int poolSize = config.getPoolSize();
         connQueue = new LinkedBlockingQueue<IApnsConnection>(poolSize);
-
-        for (int i = 0; i < poolSize; i++) {
-            String connName = (config.isDevEnv() ? "dev-" : "pro-") + CONN_ID_SEQ++;
+        
+        // 连接池数量是线程池的两倍
+        for (int i = 0; i < poolSize * 2; i++) {
+            String connName = (config.isDevEnv() ? "dev-conn-" : "pro-conn-") + CONN_ID_SEQ++;
             IApnsConnection conn = new ApnsConnectionImpl(this.factory, host, port, config.getRetries(), config.getCacheLength(), config.getName(), connName, config.getIntervalTime(),
                     config.getTimeout());
             connQueue.add(conn);
         }
     }
+    
+    public int getConnQueSize(){
+        return connQueue.size();
+    }
 
     /**
      * 那到的连接可能正在处理重发，跳过这样的连接，继续take
-     * 
      * @return
      */
     public IApnsConnection borrowConn() {
@@ -72,13 +81,13 @@ public class ApnsConnectionPool implements Closeable {
                 IApnsConnection conn = connQueue.take();
                 if (!conn.isAvailable()) {
                     // conn 正在重发或者重连，不可用
-                    logger.error(String.format("borrow a unavailable conn %s , skip it!", ((ApnsConnectionImpl) conn).getConnName()));
+                    logger.error(String.format(Thread.currentThread().getName() + ": borrow a unavailable conn %s , skip it!",((ApnsConnectionImpl)conn).getConnName()));
                     connQueue.add(conn);
                 } else {
                     return conn;
                 }
             }
-            // return connQueue.take();
+            //return connQueue.take();
         } catch (Exception e) {
             e.printStackTrace();
         }

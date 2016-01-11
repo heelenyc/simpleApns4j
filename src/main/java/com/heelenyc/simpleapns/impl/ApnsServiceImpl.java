@@ -15,9 +15,7 @@
  */
 package com.heelenyc.simpleapns.impl;
 
-import static com.heelenyc.simpleapns.model.ApnsConstants.ALGORITHM;
-import static com.heelenyc.simpleapns.model.ApnsConstants.KEYSTORE_TYPE;
-import static com.heelenyc.simpleapns.model.ApnsConstants.PROTOCOL;
+
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.SocketFactory;
@@ -45,6 +44,10 @@ import com.heelenyc.simpleapns.model.Payload;
 import com.heelenyc.simpleapns.model.PushNotification;
 import com.heelenyc.simpleapns.utils.ApnsTools;
 
+
+
+
+
 /**
  * The service should be created twice at most. One for the development env, and
  * the other for the production env
@@ -57,6 +60,7 @@ public class ApnsServiceImpl implements IApnsService {
     private ExecutorService service = null;
     private BlockingQueue<Runnable> requestQueue = null;
     private AtomicLong sends= new AtomicLong();
+    private AtomicInteger threadId = new AtomicInteger(0);
     
     private ApnsConnectionPool connPool = null;
 
@@ -98,7 +102,7 @@ public class ApnsServiceImpl implements IApnsService {
         service = new ThreadPoolExecutor(poolSize, poolSize, 10, TimeUnit.SECONDS, requestQueue, new ThreadFactory() {
             @Override
             public Thread newThread(Runnable r) {
-                return new Thread(r, "ApnsServiceImpl-woker");
+                return new Thread(r, "ApnsServiceImpl-woker-" + threadId.getAndIncrement());
             }
         });
 
@@ -190,16 +194,22 @@ public class ApnsServiceImpl implements IApnsService {
     }
 
     @Override
-    public void stat() {
+    public Map<String, String> getStat() {
+        Map<String, String> stat = new HashMap<String, String>();
         for (Entry<String, IApnsService> serviceEntry : serviceCacheMap.entrySet()) {
-            logger.info(String.format("service- sends : %s  queue size : %s", serviceEntry.getKey(),getAndClearSends(),getWorkerQueuesize()));
+            //logger.info(String.format("service- sends : %s  queue size : %s", serviceEntry.getKey(),getAndClearSends(),getWorkerQueuesize()));
+            stat.put(serviceEntry.getKey()+"-sendNum", String.valueOf(ApnsContext.getAndLClearSends()));
+            stat.put(serviceEntry.getKey()+"-requestNum", String.valueOf(getAndClearSends()));
+            stat.put(serviceEntry.getKey()+"-queueSize", String.valueOf(getWorkerQueuesize()));
+            stat.put(serviceEntry.getKey()+"-connqueueSize", String.valueOf(connPool.getConnQueSize()));
         }
+        return stat;
     }
     
     /**
      * @return
      */
-    private long getAndClearSends() {
+    public long getAndClearSends() {
         return sends.getAndSet(0);
     }
 
