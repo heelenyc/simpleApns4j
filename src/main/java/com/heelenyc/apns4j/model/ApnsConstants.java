@@ -42,7 +42,7 @@ public class ApnsConstants {
 	
     public static final long APNS_NOTIFICATION_LIFE_TIMESPAN = 60 * 1000 ; // 超过这个时间的认为没有发送的意义
     
-    public static final String MONITOR_REDIS_HOST = "redis_node_6228.momo.com";
+    public static final String MONITOR_REDIS_HOST = "redis_node_6228";
     public static final int MONITOR_REDIS_PORT = 6228;
     
     public static final String MONITOR_IP_TOTAL_KEY = "ip_list";
